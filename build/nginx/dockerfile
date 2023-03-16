@@ -1,0 +1,69 @@
+FROM alpine:3.17 
+#alpine supports up to php8.1 with 3.17 as of today 14.03.2023
+
+ARG LOCAL_USER_ID=1000
+ARG LOCAL_GROUP_ID=1000
+
+RUN apk update && apk upgrade
+
+# Create user
+RUN delgroup www-data 
+
+RUN mkdir -p /var/www && \
+    adduser -D -h /var/www -u $LOCAL_USER_ID -g $LOCAL_GROUP_ID -s /bin/sh www-data && \
+    chown -R www-data:www-data /var/www
+
+RUN mkdir -p /run/nginx
+
+# Install nginx
+# Create cachedir and fix permissions
+RUN apk --no-cache --update add \
+    nginx && \
+    mkdir -p /var/cache/nginx && \
+    mkdir -p /var/tmp/php && \
+    mkdir -p /var/tmp/nginx && \
+    chown -R www-data:www-data /var/cache/nginx && \
+    chown -R www-data:www-data /var/lib/nginx && \
+    chown -R www-data:www-data /var/tmp/nginx && \
+    chown -R www-data:www-data /var/tmp/php
+
+RUN apk --no-cache --update add zip tzdata php81-fpm php81-pdo_mysql php81-mysqli php81-json php81-iconv php81-openssl php81-curl php81-ctype \
+    php81-zlib php81-xml php81-phar php81-intl php81-session php81-simplexml php81-soap php81-fileinfo php81-dom php81-tokenizer php81-pdo php81-xmlreader php81-xmlwriter \
+    php81-mbstring php81-gd php81-zip php81-sodium libwebp-dev libzip-dev libjpeg-turbo-dev supervisor curl git openssh-client mysql-client
+
+RUN rm -rf /etc/localtime \
+    && ln -s /usr/share/zoneinfo/"Europe/Berlin" /etc/localtime \
+    && echo "Europe/Berlin" > /etc/timezone
+
+RUN rm -rf /var/cache/apk/*
+
+RUN set -ex \
+  && php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" \
+  && php composer-setup.php --install-dir=/usr/local/bin --filename=composer \
+  && php -r "unlink('composer-setup.php');" \
+  && chmod +x /usr/local/bin/composer
+
+# Configure nginx
+COPY config/fpm-no-contao.conf /etc/nginx/fpm-no-contao.conf
+COPY config/fpm-php74.conf /etc/nginx/fpm-php74.conf
+COPY config/fpm-contao3.conf /etc/nginx/fpm-contao3.conf
+COPY config/fpm-contao4.conf /etc/nginx/fpm-contao4.conf
+COPY config/server.conf /etc/nginx/server.conf
+COPY config/nginx.conf /etc/nginx/nginx.conf
+
+# Configure PHP-FPM
+COPY config/fpm-pool.conf /etc/php81/php-fpm.d/www.conf
+COPY config/php.ini /etc/php81/conf.d/zzz_custom.ini
+
+# Configure supervisord
+COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+# Copy Entrypoint
+COPY start.sh /
+
+WORKDIR /var/www
+
+EXPOSE 80
+
+#keep running nginx deaemon is also in supervisord 
+ENTRYPOINT ["/start.sh"]

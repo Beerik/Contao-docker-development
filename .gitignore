@@ -1,0 +1,14 @@
+/volumes/*
+!/volumes/application
+/volumes/application/*
+!/volumes/application/dockertest/
+!/volumes/application/dockertest-2/
+!/volumes/application/composer.phar
+!/volumes/application/contao-manager.phar.php
+
+!/volumes/mysql
+/volumes/mysql/*
+!/volumes/mysql/.empty
+
+/certs/*
+!/certs/.empty

@@ -1,0 +1,37 @@
+version: "3.9"
+
+services:
+  nginx:
+    build:
+      context: ./build/nginx
+      args:
+        LOCAL_USER_ID: 1000
+        LOCAL_GROUP_ID: 1000
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./volumes/application:/var/www
+      - ./certs:/etc/nginx/certs
+    links:
+      - mysql:mysql
+
+  php74:
+    build:
+      context: ./build/php74
+    volumes:
+      - ./volumes/application:/var/www
+
+  mysql:
+    build:
+      context: build/mysql
+      args:
+        LOCAL_USER_ID: 1000
+        LOCAL_GROUP_ID: 1000
+    volumes:
+      - ./volumes/mysql:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=opwer384
+      - TZ=Europe/Berlin
+    ports:
+      - "3306:3306"
